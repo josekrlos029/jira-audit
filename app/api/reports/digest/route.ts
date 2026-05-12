@@ -149,16 +149,39 @@ async function handle(req: Request, dryRun: boolean) {
       );
     }
 
+    // Safety: Slack permite máx 50 bloques; si hay más, recortamos.
+    if (digest.blocks.length > 48) {
+      console.warn(
+        `[digest] ⚠️ Recortando bloques: ${digest.blocks.length} -> 48`,
+      );
+      digest.blocks.length = 48;
+      digest.blocks.push({
+        type: "context",
+        elements: [
+          { type: "mrkdwn", text: `_(mensaje recortado, ${digest.blocks.length} bloques)_` },
+        ],
+      } as any);
+    }
+
+    console.log(
+      `[digest] Enviando a Slack: time=${time}, issues=${sprint.issues.length}, bloques=${digest.blocks.length}, textLen=${digest.text.length}`,
+    );
+
     await postToSlack(webhook, digest);
+
+    console.log(`[digest] ✅ Enviado exitosamente a Slack`);
+
     return NextResponse.json({
       ok: true,
       time,
       llm: { status: llmStatus, model: llm?.model ?? null },
       delivered: "slack",
       totalIssues: sprint.issues.length,
+      slackBlocks: digest.blocks.length,
     });
   } catch (e: any) {
-    console.error("digest error:", e);
+    console.error("[digest] ❌ Error:", e?.message ?? String(e));
+    console.error("[digest] Stack:", e?.stack);
     return NextResponse.json(
       { error: "digest_failed", message: e?.message ?? String(e) },
       { status: 502 },

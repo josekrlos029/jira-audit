@@ -457,16 +457,31 @@ export async function postToSlack(
   webhook: string,
   digest: DigestOutput,
 ): Promise<void> {
+  const payload = JSON.stringify({
+    text: digest.text,
+    blocks: digest.blocks,
+  });
+
+  console.log(
+    `[slack] Sending: ${payload.length} bytes, ${digest.blocks.length} blocks`,
+  );
+
   const r = await fetch(webhook, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      text: digest.text,
-      blocks: digest.blocks,
-    }),
+    body: payload,
   });
+
+  const body = await r.text();
+  console.log(`[slack] Response: ${r.status} → "${body}"`);
+
   if (!r.ok) {
-    const body = await r.text();
     throw new Error(`Slack webhook falló: ${r.status} ${body.slice(0, 200)}`);
+  }
+
+  // Slack responde "ok" como texto plano cuando acepta. Si responde otra cosa,
+  // puede ser un error silencioso (ej: "invalid_blocks").
+  if (body !== "ok") {
+    console.warn(`[slack] ⚠️ Slack no respondió "ok", respondió: "${body}"`);
   }
 }

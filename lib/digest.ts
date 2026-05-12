@@ -28,6 +28,27 @@ export interface DigestInput {
   time: DigestTime;
   /** "es-VE" por default. */
   locale?: string;
+  /** Coaching reescrito por LLM (opcional). Si está, reemplaza al rule-based. */
+  llm?: LlmCoachingForDigest | null;
+}
+
+/**
+ * Subset de la salida del LLM que el digest necesita.
+ * (digest.ts NO importa digest-llm.ts para evitar ciclo / pesos.)
+ */
+export interface LlmCoachingForDigest {
+  coaching: Array<{
+    personName: string;
+    blocks: Array<{
+      pattern: string;
+      why: string;
+      say: string;
+      avoid?: string;
+      severity: "alert" | "watch" | "calm";
+      evidenceKeys: string[];
+    }>;
+  }>;
+  teamObservations: Array<{ point: string; detail: string }>;
 }
 
 export interface DigestOutput {
@@ -96,15 +117,43 @@ export function buildDigest(input: DigestInput): DigestOutput {
 
   // -----------------------------------------------------------
   // Coaching por junior
+  // (Si hay coaching del LLM, lo usamos; si no, rule-based.)
   // -----------------------------------------------------------
-  const coaching = juniors
-    .map((p) => ({ p, tips: coachingTipsForPerson(p) }))
-    .filter((x) => x.tips.length > 0);
+  const coaching: { p: PersonContext; tips: CoachingTip[] }[] = [];
+  if (input.llm && input.llm.coaching.length > 0) {
+    const byName = new Map(juniors.map((p) => [p.name, p]));
+    for (const c of input.llm.coaching) {
+      const p = byName.get(c.personName);
+      if (!p) continue;
+      const tips: CoachingTip[] = c.blocks.map((b) => ({
+        pattern: b.pattern,
+        why: b.why,
+        say: b.say,
+        avoid: b.avoid,
+        severity: b.severity,
+        evidence: issues.filter((it) => b.evidenceKeys.includes(it.key)),
+      }));
+      if (tips.length > 0) coaching.push({ p, tips });
+    }
+  } else {
+    for (const p of juniors) {
+      const tips = coachingTipsForPerson(p);
+      if (tips.length > 0) coaching.push({ p, tips });
+    }
+  }
 
   // -----------------------------------------------------------
-  // Tips de equipo
+  // Tips de equipo (LLM > rule-based)
   // -----------------------------------------------------------
-  const teamTipsBlock = teamTips
+  const llmTeam = (input.llm?.teamObservations ?? []).map((o) => ({
+    pattern: o.point,
+    detail: o.detail,
+  }));
+  const effectiveTeamTips =
+    llmTeam.length > 0
+      ? llmTeam
+      : teamTips.map((t) => ({ pattern: t.pattern, detail: t.detail }));
+  const teamTipsBlock = effectiveTeamTips
     .map((t) => `• *${t.pattern}* — ${t.detail}`)
     .join("\n");
 
@@ -222,7 +271,7 @@ export function buildDigest(input: DigestInput): DigestOutput {
     risks,
     coaching,
     seniors,
-    teamTips,
+    teamTips: effectiveTeamTips,
   });
 
   // Top-level `text` para Slack (fallback en notificaciones).

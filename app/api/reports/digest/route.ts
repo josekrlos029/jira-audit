@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { fetchSprintWithServiceAuth } from "@/lib/jira-service";
 import { buildDigest, postToSlack, type DigestTime } from "@/lib/digest";
+import { getGeminiFromEnv } from "@/lib/llm";
+import { getMemoryStore } from "@/lib/memory-store";
+import { runLlmEnhancement, persistRun } from "@/lib/digest-llm";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -71,11 +74,59 @@ async function handle(req: Request, dryRun: boolean) {
 
   try {
     const sprint = await fetchSprintWithServiceAuth();
-    const digest = buildDigest({ sprint, juniorIds, time });
+
+    // ------- LLM enhancement (opcional) -----------
+    const llm = getGeminiFromEnv();
+    const memory = getMemoryStore();
+    let enhanced = null;
+    let llmStatus: "off" | "ok" | "failed" = "off";
+    if (llm) {
+      try {
+        enhanced = await runLlmEnhancement({
+          llm,
+          memory,
+          sprint,
+          juniorIds,
+          time,
+        });
+        llmStatus = enhanced ? "ok" : "off";
+      } catch (e) {
+        console.error("LLM enhancement falló (continuamos con rule-based):", e);
+        llmStatus = "failed";
+      }
+    }
+
+    const digest = buildDigest({
+      sprint,
+      juniorIds,
+      time,
+      llm: enhanced
+        ? {
+            coaching: enhanced.coaching,
+            teamObservations: enhanced.teamObservations,
+          }
+        : null,
+    });
+
+    // ------- Persistir snapshot + memory (no en preview) -----------
+    if (!dryRun) {
+      try {
+        await persistRun({
+          memory,
+          sprint,
+          juniorIds,
+          time,
+          enhanced,
+        });
+      } catch (e) {
+        console.error("No se pudo persistir memoria:", e);
+      }
+    }
 
     if (dryRun) {
       return NextResponse.json({
         time,
+        llm: { status: llmStatus, model: llm?.model ?? null },
         sprint: {
           projectKey: sprint.projectKey,
           fetchedAt: sprint.fetchedAt,
@@ -102,6 +153,7 @@ async function handle(req: Request, dryRun: boolean) {
     return NextResponse.json({
       ok: true,
       time,
+      llm: { status: llmStatus, model: llm?.model ?? null },
       delivered: "slack",
       totalIssues: sprint.issues.length,
     });

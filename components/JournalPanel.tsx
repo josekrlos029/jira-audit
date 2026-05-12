@@ -141,6 +141,7 @@ export function JournalPanel() {
   const [query, setQuery] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [importMsg, setImportMsg] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -228,6 +229,65 @@ export function JournalPanel() {
     URL.revokeObjectURL(url);
   }
 
+  function exportJSON() {
+    const data = JSON.stringify(entries, null, 2);
+    const blob = new Blob([data], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const today = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `journal-armi-${today}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function importJSON() {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json";
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const imported: JournalEntry[] = JSON.parse(text);
+        if (!Array.isArray(imported)) {
+          setImportMsg("❌ El archivo no contiene un array de entradas.");
+          return;
+        }
+        // Validar estructura mínima
+        const valid = imported.filter(
+          (e) => e && typeof e.id === "string" && typeof e.title === "string" && typeof e.kind === "string"
+        );
+        if (valid.length === 0) {
+          setImportMsg("❌ No se encontraron entradas válidas.");
+          return;
+        }
+        // Merge por ID: las existentes no se duplican, las nuevas se agregan
+        const existingIds = new Set(entries.map((e) => e.id));
+        const newEntries = valid.filter((e) => !existingIds.has(e.id));
+        const updated = valid.filter((e) => existingIds.has(e.id));
+        setEntries((prev) => {
+          const merged = prev.map((existing) => {
+            const update = updated.find((u) => u.id === existing.id);
+            return update ?? existing;
+          });
+          return [...newEntries, ...merged];
+        });
+        setImportMsg(
+          `✅ Importadas ${newEntries.length} nuevas, ${updated.length} actualizadas.`
+        );
+        setTimeout(() => setImportMsg(null), 5000);
+      } catch {
+        setImportMsg("❌ Error leyendo el archivo JSON.");
+        setTimeout(() => setImportMsg(null), 5000);
+      }
+    };
+    input.click();
+  }
+
   return (
     <div>
       {/* Barra superior */}
@@ -257,7 +317,24 @@ export function JournalPanel() {
             className="text-xs px-3 py-1.5 rounded-md border border-line-strong bg-white hover:border-brand hover:text-brand text-ink font-medium disabled:opacity-40"
             title="Descargar journal como markdown"
           >
-            ⬇ Exportar .md
+            ⬇ .md
+          </button>
+
+          <button
+            onClick={exportJSON}
+            disabled={entries.length === 0}
+            className="text-xs px-3 py-1.5 rounded-md border border-line-strong bg-white hover:border-brand hover:text-brand text-ink font-medium disabled:opacity-40"
+            title="Descargar backup JSON del journal"
+          >
+            ⬇ .json
+          </button>
+
+          <button
+            onClick={importJSON}
+            className="text-xs px-3 py-1.5 rounded-md border border-line-strong bg-white hover:border-good hover:text-good text-ink font-medium"
+            title="Restaurar backup JSON del journal"
+          >
+            ⬆ Importar
           </button>
 
           <button
@@ -273,6 +350,18 @@ export function JournalPanel() {
 
         {/* Chips de filtro */}
         <div className="flex flex-wrap gap-1.5 mt-3">
+          {importMsg && (
+            <span
+              className={classNames(
+                "text-xs px-2.5 py-1 rounded-md font-medium",
+                importMsg.startsWith("✅")
+                  ? "bg-good-soft text-good"
+                  : "bg-bad-soft text-bad"
+              )}
+            >
+              {importMsg}
+            </span>
+          )}
           <FilterChip
             active={filter === "all"}
             onClick={() => setFilter("all")}

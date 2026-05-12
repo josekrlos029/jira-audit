@@ -3,10 +3,12 @@
 import { useState } from "react";
 import { useJiraSprint, REFRESH_INTERVAL_MS } from "@/hooks/useJiraSprint";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { useDocumentBadge } from "@/hooks/useDocumentBadge";
 import { Header } from "./Header";
 import { KpiRow } from "./KpiRow";
 import { AlertsPanel } from "./AlertsPanel";
 import { ChartsGrid } from "./ChartsGrid";
+import { BurndownChart } from "./BurndownChart";
 import { PeopleGrid } from "./PeopleGrid";
 import { IssuesTable } from "./IssuesTable";
 import { JournalPanel } from "./JournalPanel";
@@ -45,6 +47,9 @@ export function Dashboard({ projectKey, projectName, site, currentUser }: Props)
 
   const issues = data?.issues ?? [];
   const juniorSet = new Set(juniors);
+
+  // Badge de urgencia en el tab del browser
+  useDocumentBadge(issues);
 
   return (
     <div className="max-w-[1280px] mx-auto px-5 pt-4 pb-16">
@@ -95,7 +100,11 @@ export function Dashboard({ projectKey, projectName, site, currentUser }: Props)
           </div>
 
           {tab === "resumen" && (
-            <ChartsGrid issues={issues} juniorSet={juniorSet} />
+            <>
+              <BurndownChart issues={issues} />
+              <div className="mt-3" />
+              <ChartsGrid issues={issues} juniorSet={juniorSet} />
+            </>
           )}
           {tab === "personas" && (
             <PeopleGrid issues={issues} juniorSet={juniorSet} />

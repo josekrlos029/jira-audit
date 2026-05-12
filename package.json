@@ -2,6 +2,9 @@
   "name": "sprint-armi",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "22.x"
+  },
   "description": "Tablero en vivo del sprint del equipo Armi Delivery Remo (proyecto ADR en Jira). Conectado vía OAuth 2.0 (3LO) a Atlassian.",
   "scripts": {
     "dev": "next dev",

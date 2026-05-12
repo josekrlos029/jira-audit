@@ -6,7 +6,7 @@ import { NextResponse, type NextRequest } from "next/server";
 // sin sesión: redirige a /login cuando la cookie ni siquiera existe.
 const COOKIE = process.env.SESSION_COOKIE_NAME ?? "sprint_armi_session";
 
-const PUBLIC_PREFIXES = ["/login", "/api/auth", "/_next", "/favicon"];
+const PUBLIC_PREFIXES = ["/login", "/api/auth", "/api/reports", "/_next", "/favicon"];
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;

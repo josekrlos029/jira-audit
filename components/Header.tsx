@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import type { SessionUser } from "@/lib/types";
 import { initials } from "@/lib/utils";
 
@@ -65,6 +66,13 @@ export function Header({
         >
           📋 Standup
         </button>
+        <Link
+          href="/qa"
+          className="text-xs px-3 py-1.5 rounded-md border border-line-strong bg-white hover:border-brand hover:text-brand text-ink font-medium"
+          title="Métricas de tiempo en PRUEBAS QA"
+        >
+          🧪 QA
+        </Link>
         <button
           onClick={onOpenJuniors}
           className="text-xs px-3 py-1.5 rounded-md border border-line-strong bg-white hover:border-brand hover:text-brand text-ink font-medium"

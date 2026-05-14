@@ -83,3 +83,13 @@ export function classNames(...xs: (string | false | null | undefined)[]) {
 export function statusCategoryLabel(cat: StatusCategoryKey): string {
   return cat === "done" ? "Listo" : cat === "indeterminate" ? "En curso" : "Por hacer";
 }
+
+export function formatDuration(ms: number): string {
+  if (!ms || ms <= 0) return "0h";
+  const totalH = Math.floor(ms / (1000 * 60 * 60));
+  const days = Math.floor(totalH / 24);
+  const hours = totalH % 24;
+  if (days <= 0) return `${hours}h`;
+  if (hours === 0) return `${days}d`;
+  return `${days}d ${hours}h`;
+}

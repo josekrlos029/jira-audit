@@ -97,7 +97,10 @@ export interface MemoryStore {
 //   juniors/<safeId>.json  - patterns por persona
 
 function dataDir(): string {
-  return process.env.DIGEST_DATA_DIR ?? path.join(process.cwd(), "data");
+  if (process.env.DIGEST_DATA_DIR) return process.env.DIGEST_DATA_DIR;
+  // En Vercel, solo /tmp es escribible (efímero entre invocaciones).
+  if (process.env.VERCEL) return "/tmp/data";
+  return path.join(process.cwd(), "data");
 }
 
 async function ensureDir(p: string) {

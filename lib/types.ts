@@ -70,6 +70,69 @@ export interface SessionUser {
   avatar?: string;
 }
 
+export interface JiraSprintRef {
+  id: number;
+  name: string;
+  state: "active" | "closed" | "future";
+  startDate?: string;
+  endDate?: string;
+  completeDate?: string;
+}
+
+export interface QaIssueMetrics {
+  key: string;
+  summary: string;
+  webUrl: string;
+  sprintId: number;
+  sprintName: string;
+  assignee: string | null;
+  currentStatus: string;
+  labels: string[];
+  msInQa: number;
+  msInReturned: number;
+  qaEnters: number;
+  returnedEnters: number;
+  stillOpen: boolean;
+}
+
+export interface QaSprintSummary {
+  sprintId: number;
+  sprintName: string;
+  state: JiraSprintRef["state"];
+  taskCount: number;
+  avgMsInQa: number;
+  totalReturns: number;
+}
+
+export interface QaCompletionBucket {
+  qa: number;
+  noQa: number;
+}
+
+export interface QaCompletionPerSprint extends QaCompletionBucket {
+  sprintId: number;
+  sprintName: string;
+}
+
+export interface QaCompletionStats {
+  perSprint: QaCompletionPerSprint[];
+  global: QaCompletionBucket;
+}
+
+export interface QaReport {
+  fetchedAt: string;
+  sprints: JiraSprintRef[];
+  issues: QaIssueMetrics[];
+  perSprint: QaSprintSummary[];
+  global: {
+    taskCount: number;
+    avgMsInQa: number;
+    totalMsInQa: number;
+    totalReturns: number;
+  };
+  completion: QaCompletionStats;
+}
+
 export interface SessionData {
   accessToken?: string;
   refreshToken?: string;
